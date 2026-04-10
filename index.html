@@ -1,0 +1,1878 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PCM Analytics - Dashboard de Manutenção Industrial GLP</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#1F4E78',
+                        secondary: '#2C5F8E',
+                        accent: '#3B82F6',
+                        danger: '#DC2626',
+                        warning: '#F59E0B',
+                        success: '#10B981',
+                        dark: '#1E293B',
+                        light: '#F8FAFC'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #f0f4f8 0%, #e2e8f0 100%);
+        }
+        
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        
+        .metric-card {
+            transition: all 0.3s ease;
+        }
+        
+        .metric-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+        
+        .gauge-container {
+            position: relative;
+            width: 200px;
+            height: 120px;
+            margin: 0 auto;
+        }
+        
+        .gauge-bg {
+            fill: none;
+            stroke: #e5e7eb;
+            stroke-width: 20;
+        }
+        
+        .gauge-fill {
+            fill: none;
+            stroke-width: 20;
+            stroke-linecap: round;
+            transition: stroke-dasharray 1s ease, stroke 0.5s ease;
+        }
+        
+        .nav-item.active {
+            background: linear-gradient(90deg, rgba(31, 78, 120, 0.1) 0%, rgba(31, 78, 120, 0.05) 100%);
+            border-right: 3px solid #1F4E78;
+            color: #1F4E78;
+        }
+        
+        .pulse-alert {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .slide-in {
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 6px;
+        }
+        
+        .status-dot.online { background: #10B981; box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.3); }
+        .status-dot.warning { background: #F59E0B; box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.3); }
+        .status-dot.danger { background: #DC2626; box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.3); }
+        
+        .loading-skeleton {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+        }
+        
+        @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+    </style>
+</head>
+<body class="text-slate-800 h-screen overflow-hidden">
+
+    <!-- App Container -->
+    <div class="flex h-full">
+        
+        <!-- Sidebar -->
+        <aside class="w-64 bg-white border-r border-slate-200 flex flex-col z-20 shadow-lg">
+            <div class="p-6 border-b border-slate-200">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-gradient-to-br from-primary to-secondary rounded-lg flex items-center justify-center text-white font-bold text-lg">
+                        PCM
+                    </div>
+                    <div>
+                        <h1 class="font-bold text-primary text-lg leading-tight">Analytics</h1>
+                        <p class="text-xs text-slate-500">GLP Industrial</p>
+                    </div>
+                </div>
+            </div>
+            
+            <nav class="flex-1 py-4 overflow-y-auto">
+                <div class="px-4 mb-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">Menu Principal</div>
+                
+                <a href="#" onclick="showPage('dashboard')" id="nav-dashboard" class="nav-item active flex items-center gap-3 px-4 py-3 text-slate-600 hover:bg-slate-50 transition-colors">
+                    <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+                    <span class="font-medium">Dashboard Executivo</span>
+                </a>
+                
+                <a href="#" onclick="showPage('equipamentos')" id="nav-equipamentos" class="nav-item flex items-center gap-3 px-4 py-3 text-slate-600 hover:bg-slate-50 transition-colors">
+                    <i data-lucide="wrench" class="w-5 h-5"></i>
+                    <span class="font-medium">Análise por Equipamento</span>
+                </a>
+                
+                <a href="#" onclick="showPage('seguranca')" id="nav-seguranca" class="nav-item flex items-center gap-3 px-4 py-3 text-slate-600 hover:bg-slate-50 transition-colors">
+                    <i data-lucide="shield-check" class="w-5 h-5"></i>
+                    <span class="font-medium">Conformidade NR-13/NR-20</span>
+                    <span id="badge-nr13" class="ml-auto bg-danger text-white text-xs px-2 py-0.5 rounded-full hidden">!</span>
+                </a>
+                
+                <a href="#" onclick="showPage('financeiro')" id="nav-financeiro" class="nav-item flex items-center gap-3 px-4 py-3 text-slate-600 hover:bg-slate-50 transition-colors">
+                    <i data-lucide="dollar-sign" class="w-5 h-5"></i>
+                    <span class="font-medium">Análise Financeira</span>
+                </a>
+                
+                <a href="#" onclick="showPage('recursos')" id="nav-recursos" class="nav-item flex items-center gap-3 px-4 py-3 text-slate-600 hover:bg-slate-50 transition-colors">
+                    <i data-lucide="users" class="w-5 h-5"></i>
+                    <span class="font-medium">Gestão de Recursos</span>
+                </a>
+                
+                <div class="px-4 mt-6 mb-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">Configurações</div>
+                
+                <a href="#" onclick="toggleConfig()" class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:bg-slate-50 transition-colors">
+                    <i data-lucide="settings" class="w-5 h-5"></i>
+                    <span class="font-medium">Configurar API Sheets</span>
+                </a>
+            </nav>
+            
+            <div class="p-4 border-t border-slate-200 bg-slate-50">
+                <div class="flex items-center gap-3 mb-3">
+                    <div class="w-2 h-2 rounded-full bg-success animate-pulse"></div>
+                    <span class="text-xs font-medium text-slate-600">Sistema Online</span>
+                </div>
+                <div class="text-xs text-slate-500">
+                    Última atualização: <span id="last-update">--:--</span>
+                </div>
+                <button onclick="refreshData()" class="mt-2 w-full py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-secondary transition-colors flex items-center justify-center gap-2">
+                    <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                    Atualizar Dados
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 overflow-y-auto bg-gradient-to-br from-slate-50 to-slate-100">
+            
+            <!-- Header -->
+            <header class="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-10 px-8 py-4">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h2 id="page-title" class="text-2xl font-bold text-slate-800">Dashboard Executivo</h2>
+                        <p class="text-sm text-slate-500 mt-1">Visão geral em tempo real dos indicadores críticos</p>
+                    </div>
+                    
+                    <div class="flex items-center gap-4">
+                        <!-- Alertas -->
+                        <div class="relative">
+                            <button class="p-2 text-slate-600 hover:bg-slate-100 rounded-lg relative">
+                                <i data-lucide="bell" class="w-5 h-5"></i>
+                                <span id="alert-count" class="absolute top-1 right-1 w-4 h-4 bg-danger text-white text-xs rounded-full flex items-center justify-center hidden">0</span>
+                            </button>
+                        </div>
+                        
+                        <!-- Filtros Rápidos -->
+                        <select id="filter-setor" onchange="applyFilters()" class="px-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white">
+                            <option value="todos">Todos os Setores</option>
+                            <option value="envase">Envase</option>
+                            <option value="armazenamento">Armazenamento</option>
+                            <option value="distribuicao">Distribuição</option>
+                        </select>
+                        
+                        <select id="filter-periodo" onchange="applyFilters()" class="px-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white">
+                            <option value="30">Últimos 30 dias</option>
+                            <option value="90">Últimos 3 meses</option>
+                            <option value="180">Últimos 6 meses</option>
+                            <option value="365">Último ano</option>
+                        </select>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Content Area -->
+            <div class="p-8">
+                
+                <!-- PAGE 1: DASHBOARD EXECUTIVO -->
+                <div id="page-dashboard" class="page-content slide-in">
+                    
+                    <!-- KPI Cards Top Row -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        
+                        <!-- Disponibilidade -->
+                        <div class="metric-card glass-panel rounded-2xl p-6 relative overflow-hidden">
+                            <div class="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-success/10 to-transparent rounded-bl-full"></div>
+                            <div class="flex justify-between items-start mb-4">
+                                <div>
+                                    <p class="text-sm font-medium text-slate-500 mb-1">Disponibilidade</p>
+                                    <h3 id="kpi-disponibilidade" class="text-3xl font-bold text-slate-800">--%</h3>
+                                </div>
+                                <div id="badge-disp" class="px-2 py-1 rounded-full text-xs font-semibold bg-slate-200 text-slate-600">
+                                    Calculando...
+                                </div>
+                            </div>
+                            <div class="gauge-container mb-2">
+                                <svg viewBox="0 0 200 120" class="w-full h-full">
+                                    <path d="M 20 100 A 80 80 0 0 1 180 100" class="gauge-bg"/>
+                                    <path id="gauge-disp" d="M 20 100 A 80 80 0 0 1 20 100" class="gauge-fill" stroke="#10B981"/>
+                                </svg>
+                                <div class="absolute bottom-0 left-0 right-0 text-center">
+                                    <span class="text-xs text-slate-400">Meta: 99.5%</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2 text-sm">
+                                <i data-lucide="trending-up" class="w-4 h-4 text-success"></i>
+                                <span class="text-slate-600">vs último mês</span>
+                            </div>
+                        </div>
+
+                        <!-- MTTR -->
+                        <div class="metric-card glass-panel rounded-2xl p-6 relative overflow-hidden">
+                            <div class="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-warning/10 to-transparent rounded-bl-full"></div>
+                            <div class="flex justify-between items-start mb-4">
+                                <div>
+                                    <p class="text-sm font-medium text-slate-500 mb-1">MTTR</p>
+                                    <h3 id="kpi-mttr" class="text-3xl font-bold text-slate-800">--h</h3>
+                                </div>
+                                <div id="badge-mttr" class="px-2 py-1 rounded-full text-xs font-semibold bg-slate-200 text-slate-600">
+                                    Meta: 10h
+                                </div>
+                            </div>
+                            <div class="h-24 flex items-end gap-1 mb-4" id="mttr-chart-mini">
+                                <!-- Bars gerados via JS -->
+                            </div>
+                            <div class="flex items-center justify-between text-sm">
+                                <span class="text-slate-600">Tempo médio de reparo</span>
+                                <span id="mttr-trend" class="font-medium">--</span>
+                            </div>
+                        </div>
+
+                        <!-- Backlog -->
+                        <div class="metric-card glass-panel rounded-2xl p-6 relative overflow-hidden">
+                            <div class="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-danger/10 to-transparent rounded-bl-full"></div>
+                            <div class="flex justify-between items-start mb-4">
+                                <div>
+                                    <p class="text-sm font-medium text-slate-500 mb-1">Backlog</p>
+                                    <h3 id="kpi-backlog" class="text-3xl font-bold text-slate-800">--</h3>
+                                </div>
+                                <div id="badge-backlog" class="px-2 py-1 rounded-full text-xs font-semibold bg-slate-200 text-slate-600">
+                                    Analisando...
+                                </div>
+                            </div>
+                            <div class="space-y-2 mb-4">
+                                <div class="flex justify-between text-xs">
+                                    <span class="text-slate-500">Urgente</span>
+                                    <span id="backlog-urgente" class="font-semibold text-danger">0</span>
+                                </div>
+                                <div class="w-full bg-slate-200 rounded-full h-2">
+                                    <div id="bar-backlog" class="bg-danger h-2 rounded-full transition-all" style="width: 0%"></div>
+                                </div>
+                                <div class="flex justify-between text-xs">
+                                    <span class="text-slate-500">Alta</span>
+                                    <span id="backlog-alta" class="font-semibold text-warning">0</span>
+                                </div>
+                            </div>
+                            <div class="text-sm text-slate-600">
+                                <span id="backlog-dias">--</span> dias médios aberto
+                            </div>
+                        </div>
+
+                        <!-- Conformidade NR-13 -->
+                        <div class="metric-card glass-panel rounded-2xl p-6 relative overflow-hidden">
+                            <div class="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-primary/10 to-transparent rounded-bl-full"></div>
+                            <div class="flex justify-between items-start mb-4">
+                                <div>
+                                    <p class="text-sm font-medium text-slate-500 mb-1">NR-13</p>
+                                    <h3 id="kpi-nr13" class="text-3xl font-bold text-slate-800">--%</h3>
+                                </div>
+                                <div id="badge-nr13-card" class="px-2 py-1 rounded-full text-xs font-semibold bg-slate-200 text-slate-600">
+                                    Válido
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-center mb-4">
+                                <div class="relative w-24 h-24">
+                                    <svg class="w-full h-full transform -rotate-90">
+                                        <circle cx="48" cy="48" r="40" stroke="#e5e7eb" stroke-width="8" fill="none"/>
+                                        <circle id="circle-nr13" cx="48" cy="48" r="40" stroke="#1F4E78" stroke-width="8" fill="none" 
+                                                stroke-dasharray="251.2" stroke-dashoffset="0" stroke-linecap="round"/>
+                                    </svg>
+                                    <div class="absolute inset-0 flex items-center justify-center">
+                                        <i data-lucide="shield" class="w-8 h-8 text-primary"></i>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="text-sm text-center text-slate-600">
+                                <span id="nr13-vencidos">0</span> equipamentos com risco legal
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Middle Row Charts -->
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                        
+                        <!-- Taxa Corretiva -->
+                        <div class="glass-panel rounded-2xl p-6">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="font-bold text-slate-800">Taxa de Manutenção Corretiva</h3>
+                                <span id="badge-corretiva" class="text-xs px-2 py-1 rounded-full bg-slate-100">Meta: 25-30%</span>
+                            </div>
+                            <div class="relative h-48">
+                                <canvas id="chart-corretiva"></canvas>
+                            </div>
+                            <div class="mt-4 grid grid-cols-3 gap-2 text-center text-xs">
+                                <div class="p-2 bg-blue-50 rounded-lg">
+                                    <div class="font-bold text-primary" id="pct-preventiva">--%</div>
+                                    <div class="text-slate-500">Preventiva</div>
+                                </div>
+                                <div class="p-2 bg-red-50 rounded-lg">
+                                    <div class="font-bold text-danger" id="pct-corretiva">--%</div>
+                                    <div class="text-slate-500">Corretiva</div>
+                                </div>
+                                <div class="p-2 bg-purple-50 rounded-lg">
+                                    <div class="font-bold text-purple-600" id="pct-preditiva">--%</div>
+                                    <div class="text-slate-500">Preditiva</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Custo vs Receita -->
+                        <div class="glass-panel rounded-2xl p-6">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="font-bold text-slate-800">Custo Manutenção / Receita</h3>
+                                <button onclick="editReceita()" class="text-xs text-primary hover:underline">Editar Receita</button>
+                            </div>
+                            <div class="flex items-center justify-center mb-4">
+                                <div class="text-center">
+                                    <div id="kpi-custo-receita" class="text-4xl font-bold text-slate-800">--%</div>
+                                    <div class="text-sm text-slate-500 mt-1">do faturamento</div>
+                                </div>
+                            </div>
+                            <div class="h-32">
+                                <canvas id="chart-custo"></canvas>
+                            </div>
+                            <div class="mt-4 flex justify-between text-xs text-slate-500">
+                                <span>Meta: 3-7%</span>
+                                <span id="custo-status">Dentro da meta</span>
+                            </div>
+                        </div>
+
+                        <!-- Taxa Retrabalho -->
+                        <div class="glass-panel rounded-2xl p-6">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="font-bold text-slate-800">Taxa de Retrabalho</h3>
+                                <span id="badge-retrabalho" class="text-xs px-2 py-1 rounded-full bg-slate-100">Meta: <5%</span>
+                            </div>
+                            <div class="h-40">
+                                <canvas id="chart-retrabalho"></canvas>
+                            </div>
+                            <div class="mt-4 space-y-2">
+                                <div class="flex justify-between text-sm">
+                                    <span class="text-slate-600">Total OS Reabertas:</span>
+                                    <span id="total-retrabalho" class="font-bold">0</span>
+                                </div>
+                                <div class="flex justify-between text-sm">
+                                    <span class="text-slate-600">Principal causa:</span>
+                                    <span id="causa-retrabalho" class="font-medium text-slate-800">--</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Bottom Section -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        
+                        <!-- Últimas Ordens -->
+                        <div class="glass-panel rounded-2xl p-6">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="font-bold text-slate-800 flex items-center gap-2">
+                                    <i data-lucide="clipboard-list" class="w-5 h-5 text-primary"></i>
+                                    Últimas Ordens de Serviço
+                                </h3>
+                                <a href="#" onclick="showPage('equipamentos')" class="text-sm text-primary hover:underline">Ver todas</a>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-sm">
+                                    <thead class="text-xs text-slate-500 uppercase bg-slate-50">
+                                        <tr>
+                                            <th class="px-3 py-2 text-left">ID</th>
+                                            <th class="px-3 py-2 text-left">Equipamento</th>
+                                            <th class="px-3 py-2 text-left">Tipo</th>
+                                            <th class="px-3 py-2 text-left">Status</th>
+                                            <th class="px-3 py-2 text-left">Prioridade</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="table-ordens" class="divide-y divide-slate-100">
+                                        <!-- Populated via JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Alertas Críticos -->
+                        <div class="glass-panel rounded-2xl p-6">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="font-bold text-slate-800 flex items-center gap-2">
+                                    <i data-lucide="alert-triangle" class="w-5 h-5 text-danger"></i>
+                                    Alertas Críticos
+                                </h3>
+                                <span id="count-alertas" class="bg-danger text-white text-xs px-2 py-1 rounded-full">0</span>
+                            </div>
+                            <div id="lista-alertas" class="space-y-3 max-h-64 overflow-y-auto">
+                                <!-- Populated via JS -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PAGE 2: ANÁLISE POR EQUIPAMENTO -->
+                <div id="page-equipamentos" class="page-content hidden slide-in">
+                    <div class="glass-panel rounded-2xl p-6 mb-6">
+                        <div class="flex flex-col md:flex-row gap-4 items-end">
+                            <div class="flex-1">
+                                <label class="block text-sm font-medium text-slate-700 mb-2">Selecionar Equipamento</label>
+                                <select id="select-equipamento" onchange="loadEquipamentoDetail()" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-white">
+                                    <option value="">Escolha um equipamento...</option>
+                                </select>
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="exportEquipamentoPDF()" class="px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-800 transition-colors flex items-center gap-2">
+                                    <i data-lucide="file-text" class="w-4 h-4"></i>
+                                    Exportar PDF
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="equipamento-detail" class="hidden">
+                        <!-- Health Score -->
+                        <div class="glass-panel rounded-2xl p-8 mb-6 text-center">
+                            <h3 class="text-lg font-medium text-slate-600 mb-4">Score de Saúde do Equipamento</h3>
+                            <div class="inline-flex items-center justify-center">
+                                <div class="relative w-40 h-40">
+                                    <svg class="w-full h-full transform -rotate-90">
+                                        <circle cx="80" cy="80" r="70" stroke="#e5e7eb" stroke-width="12" fill="none"/>
+                                        <circle id="health-circle" cx="80" cy="80" r="70" stroke="#10B981" stroke-width="12" fill="none" 
+                                                stroke-dasharray="439.8" stroke-dashoffset="100" stroke-linecap="round"/>
+                                    </svg>
+                                    <div class="absolute inset-0 flex flex-col items-center justify-center">
+                                        <span id="health-score" class="text-4xl font-bold text-slate-800">85</span>
+                                        <span id="health-label" class="text-sm text-slate-500">Saudável</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mt-4 flex justify-center gap-6 text-sm">
+                                <div class="flex items-center gap-2">
+                                    <span class="w-3 h-3 rounded-full bg-success"></span>
+                                    <span>80-100: Saudável</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="w-3 h-3 rounded-full bg-warning"></span>
+                                    <span>50-79: Atenção</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="w-3 h-3 rounded-full bg-danger"></span>
+                                    <span>0-49: Crítico</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                            <div class="glass-panel rounded-2xl p-6">
+                                <h3 class="font-bold text-slate-800 mb-4">Histórico MTBF</h3>
+                                <div class="h-64">
+                                    <canvas id="chart-mtbf-equip"></canvas>
+                                </div>
+                            </div>
+                            <div class="glass-panel rounded-2xl p-6">
+                                <h3 class="font-bold text-slate-800 mb-4">Disponibilidade Histórica</h3>
+                                <div class="h-64">
+                                    <canvas id="chart-disp-equip"></canvas>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="glass-panel rounded-2xl p-6 mb-6">
+                            <h3 class="font-bold text-slate-800 mb-4">Histórico de Falhas</h3>
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-sm">
+                                    <thead class="text-xs text-slate-500 uppercase bg-slate-50">
+                                        <tr>
+                                            <th class="px-4 py-3 text-left">Data</th>
+                                            <th class="px-4 py-3 text-left">Tipo</th>
+                                            <th class="px-4 py-3 text-left">Causa Raiz</th>
+                                            <th class="px-4 py-3 text-left">Ação Corretiva</th>
+                                            <th class="px-4 py-3 text-left">Tempo Parada</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="table-falhas-equip" class="divide-y divide-slate-100">
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div class="glass-panel rounded-2xl p-6">
+                                <h3 class="font-bold text-slate-800 mb-4">Custos Acumulados</h3>
+                                <div class="text-3xl font-bold text-slate-800 mb-2" id="custo-total-equip">R$ 0,00</div>
+                                <div class="h-48">
+                                    <canvas id="chart-custo-equip"></canvas>
+                                </div>
+                            </div>
+                            <div class="glass-panel rounded-2xl p-6">
+                                <h3 class="font-bold text-slate-800 mb-4">Próximas Manutenções</h3>
+                                <div id="proximas-manutencoes" class="space-y-3">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="equipamento-empty" class="glass-panel rounded-2xl p-12 text-center">
+                        <i data-lucide="settings" class="w-16 h-16 text-slate-300 mx-auto mb-4"></i>
+                        <h3 class="text-lg font-medium text-slate-600">Selecione um equipamento</h3>
+                        <p class="text-slate-500 mt-2">Escolha um equipamento no dropdown acima para visualizar detalhes completos</p>
+                    </div>
+                </div>
+
+                <!-- PAGE 3: CONFORMIDADE E SEGURANÇA -->
+                <div id="page-seguranca" class="page-content hidden slide-in">
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                        
+                        <!-- NR-13 Status -->
+                        <div class="glass-panel rounded-2xl p-6 lg:col-span-2">
+                            <div class="flex justify-between items-center mb-6">
+                                <div>
+                                    <h3 class="font-bold text-slate-800 text-lg">Status NR-13 - Vasos de Pressão</h3>
+                                    <p class="text-sm text-slate-500">Conformidade regulatória de equipamentos sob pressão</p>
+                                </div>
+                                <div class="text-right">
+                                    <div id="nr13-percent" class="text-3xl font-bold text-slate-800">--%</div>
+                                    <div class="text-sm text-slate-500">Conformidade</div>
+                                </div>
+                            </div>
+                            
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-sm">
+                                    <thead class="text-xs text-slate-500 uppercase bg-slate-50">
+                                        <tr>
+                                            <th class="px-4 py-3 text-left">ID</th>
+                                            <th class="px-4 py-3 text-left">Equipamento</th>
+                                            <th class="px-4 py-3 text-left">Status</th>
+                                            <th class="px-4 py-3 text-left">Próxima Inspeção</th>
+                                            <th class="px-4 py-3 text-left">Dias Restantes</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="table-nr13" class="divide-y divide-slate-100">
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Calendário de Inspeções -->
+                        <div class="glass-panel rounded-2xl p-6">
+                            <h3 class="font-bold text-slate-800 mb-4">Próximas Inspeções (6 meses)</h3>
+                            <div id="calendario-inspecoes" class="space-y-3 max-h-96 overflow-y-auto">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- NR-20 Status -->
+                    <div class="glass-panel rounded-2xl p-6 mb-8">
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="font-bold text-slate-800 text-lg">Conformidade NR-20 - Inflamáveis</h3>
+                            <div id="nr20-percent" class="text-2xl font-bold text-primary">--%</div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" id="grid-nr20">
+                        </div>
+                    </div>
+
+                    <!-- Incidentes -->
+                    <div class="glass-panel rounded-2xl p-6">
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="font-bold text-slate-800 text-lg">Registro de Incidentes</h3>
+                            <button onclick="addIncidente()" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-colors text-sm">
+                                + Registrar Incidente
+                            </button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead class="text-xs text-slate-500 uppercase bg-slate-50">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left">Data</th>
+                                        <th class="px-4 py-3 text-left">Equipamento</th>
+                                        <th class="px-4 py-3 text-left">Tipo</th>
+                                        <th class="px-4 py-3 text-left">Descrição</th>
+                                        <th class="px-4 py-3 text-left">Ação Corretiva</th>
+                                        <th class="px-4 py-3 text-left">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="table-incidentes" class="divide-y divide-slate-100">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PAGE 4: ANÁLISE FINANCEIRA -->
+                <div id="page-financeiro" class="page-content hidden slide-in">
+                    
+                    <!-- Input Receita -->
+                    <div class="glass-panel rounded-2xl p-6 mb-8">
+                        <div class="flex flex-col md:flex-row gap-4 items-end">
+                            <div class="flex-1">
+                                <label class="block text-sm font-medium text-slate-700 mb-2">Receita Operacional do Período (R$)</label>
+                                <input type="number" id="input-receita" value="5000000" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary" placeholder="0,00">
+                            </div>
+                            <div class="flex-1">
+                                <label class="block text-sm font-medium text-slate-700 mb-2">Período</label>
+                                <select class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-white">
+                                    <option>Mensal</option>
+                                    <option>Trimestral</option>
+                                    <option>Anual</option>
+                                </select>
+                            </div>
+                            <button onclick="calcularIndicadoresFinanceiros()" class="px-6 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-colors">
+                                Calcular Indicadores
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                        <div class="glass-panel rounded-2xl p-6 text-center">
+                            <p class="text-sm text-slate-500 mb-2">Custo Total Manutenção</p>
+                            <h3 id="fin-custo-total" class="text-3xl font-bold text-slate-800">R$ 0,00</h3>
+                            <div class="mt-2 text-xs text-slate-500">Últimos 30 dias</div>
+                        </div>
+                        <div class="glass-panel rounded-2xl p-6 text-center">
+                            <p class="text-sm text-slate-500 mb-2">Custo / Receita</p>
+                            <h3 id="fin-custo-percent" class="text-3xl font-bold text-primary">0%</h3>
+                            <div id="fin-custo-status" class="mt-2 text-xs px-2 py-1 rounded-full bg-success/10 text-success inline-block">Dentro da meta</div>
+                        </div>
+                        <div class="glass-panel rounded-2xl p-6 text-center">
+                            <p class="text-sm text-slate-500 mb-2">Economia Preventiva</p>
+                            <h3 id="fin-economia" class="text-3xl font-bold text-success">R$ 0,00</h3>
+                            <div class="mt-2 text-xs text-slate-500">Estimativa vs Corretiva</div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                        <div class="glass-panel rounded-2xl p-6">
+                            <h3 class="font-bold text-slate-800 mb-4">Evolução de Custos</h3>
+                            <div class="h-64">
+                                <canvas id="chart-custo-evolucao"></canvas>
+                            </div>
+                        </div>
+                        <div class="glass-panel rounded-2xl p-6">
+                            <h3 class="font-bold text-slate-800 mb-4">Breakdown de Custos</h3>
+                            <div class="h-64 flex items-center justify-center">
+                                <canvas id="chart-custo-breakdown"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass-panel rounded-2xl p-6 mb-8">
+                        <h3 class="font-bold text-slate-800 mb-4">Custo por Equipamento (Análise Pareto)</h3>
+                        <div class="h-64">
+                            <canvas id="chart-custo-pareto"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="glass-panel rounded-2xl p-6">
+                        <h3 class="font-bold text-slate-800 mb-4">Preventiva vs Corretiva - ROI</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="h-48">
+                                <canvas id="chart-prev-vs-corr"></canvas>
+                            </div>
+                            <div class="flex flex-col justify-center space-y-4">
+                                <div class="p-4 bg-blue-50 rounded-lg">
+                                    <div class="text-sm text-slate-600">Investimento em Preventiva</div>
+                                    <div id="roi-preventiva" class="text-2xl font-bold text-primary">R$ 0,00</div>
+                                </div>
+                                <div class="p-4 bg-red-50 rounded-lg">
+                                    <div class="text-sm text-slate-600">Custo Evitado (Corretiva)</div>
+                                    <div id="roi-evitado" class="text-2xl font-bold text-danger">R$ 0,00</div>
+                                </div>
+                                <div class="p-4 bg-green-50 rounded-lg">
+                                    <div class="text-sm text-slate-600">Retorno sobre Investimento</div>
+                                    <div id="roi-percent" class="text-2xl font-bold text-success">0%</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PAGE 5: GESTÃO DE RECURSOS -->
+                <div id="page-recursos" class="page-content hidden slide-in">
+                    
+                    <div class="glass-panel rounded-2xl p-6 mb-8">
+                        <h3 class="font-bold text-slate-800 mb-6">Performance da Equipe</h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead class="text-xs text-slate-500 uppercase bg-slate-50">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left">Técnico</th>
+                                        <th class="px-4 py-3 text-left">Turno</th>
+                                        <th class="px-4 py-3 text-left">Especialidade</th>
+                                        <th class="px-4 py-3 text-left">MTTR Médio</th>
+                                        <th class="px-4 py-3 text-left">Taxa Retrabalho</th>
+                                        <th class="px-4 py-3 text-left">OS Concluídas</th>
+                                        <th class="px-4 py-3 text-left">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="table-tecnicos" class="divide-y divide-slate-100">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                        <div class="glass-panel rounded-2xl p-6">
+                            <h3 class="font-bold text-slate-800 mb-4">Utilização por Técnico (%)</h3>
+                            <div class="h-64">
+                                <canvas id="chart-utilizacao"></canvas>
+                            </div>
+                        </div>
+                        <div class="glass-panel rounded-2xl p-6">
+                            <h3 class="font-bold text-slate-800 mb-4">Backlog por Responsável</h3>
+                            <div class="h-64">
+                                <canvas id="chart-backlog-resp"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass-panel rounded-2xl p-6">
+                        <h3 class="font-bold text-slate-800 mb-4">Treinamentos Necessários</h3>
+                        <div id="lista-treinamentos" class="space-y-3">
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Config Modal -->
+    <div id="modal-config" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center">
+        <div class="bg-white rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl">
+            <h3 class="text-xl font-bold text-slate-800 mb-4">Configurar Google Sheets API</h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-2">API Key</label>
+                    <input type="text" id="config-apikey" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary" placeholder="Sua API Key do Google Cloud">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-2">Spreadsheet ID</label>
+                    <input type="text" id="config-sheetid" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary" value="1uiGzjIHLm8zRgcrJs6am22u_9sPyaGSiwG45LCyzOmU">
+                </div>
+                <div class="bg-blue-50 p-4 rounded-lg text-sm text-blue-800">
+                    <p class="font-medium mb-2">Como obter:</p>
+                    <ol class="list-decimal list-inside space-y-1 text-xs">
+                        <li>Acesse Google Cloud Console</li>
+                        <li>Crie um projeto e habilite Sheets API</li>
+                        <li>Crie credenciais (API Key)</li>
+                        <li>Compartilhe a planilha com a conta de serviço</li>
+                    </ol>
+                </div>
+            </div>
+            <div class="flex gap-3 mt-6">
+                <button onclick="closeConfig()" class="flex-1 px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">Cancelar</button>
+                <button onclick="saveConfig()" class="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-colors">Salvar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+
+        // Global Data Store
+        const appData = {
+            equipamentos: [],
+            ordens: [],
+            custos: [],
+            falhas: [],
+            seguranca: [],
+            planos: [],
+            equipe: [],
+            config: {
+                apiKey: localStorage.getItem('sheets_api_key') || '',
+                spreadsheetId: localStorage.getItem('sheets_spreadsheet_id') || '1uiGzjIHLm8zRgcrJs6am22u_9sPyaGSiwG45LCyzOmU'
+            },
+            filters: {
+                setor: 'todos',
+                periodo: 30
+            },
+            charts: {}
+        };
+
+        // Mock Data Generator (for demonstration)
+        function generateMockData() {
+            // Equipamentos (12 equipamentos GLP)
+            appData.equipamentos = [
+                { id: 'EQ001', nome: 'Tanque GLP 01', setor: 'armazenamento', tipo: 'Tanque', classe_nr13: 'Sim', data_proxima_inspecao: '2024-06-15', status: 'Operacional' },
+                { id: 'EQ002', nome: 'Tanque GLP 02', setor: 'armazenamento', tipo: 'Tanque', classe_nr13: 'Sim', data_proxima_inspecao: '2024-05-20', status: 'Operacional' },
+                { id: 'EQ003', nome: 'Compressor Principal', setor: 'envase', tipo: 'Compressor', classe_nr13: 'Sim', data_proxima_inspecao: '2024-04-10', status: 'Operacional' },
+                { id: 'EQ004', nome: 'Compressor Auxiliar', setor: 'envase', tipo: 'Compressor', classe_nr13: 'Sim', data_proxima_inspecao: '2024-07-22', status: 'Manutenção' },
+                { id: 'EQ005', nome: 'Bomba de Transferência 01', setor: 'distribuicao', tipo: 'Bomba', classe_nr13: 'Não', data_proxima_inspecao: null, status: 'Operacional' },
+                { id: 'EQ006', nome: 'Bomba de Transferência 02', setor: 'distribuicao', tipo: 'Bomba', classe_nr13: 'Não', data_proxima_inspecao: null, status: 'Operacional' },
+                { id: 'EQ007', nome: 'Válvula de Segurança 01', setor: 'armazenamento', tipo: 'Válvula', classe_nr13: 'Sim', data_proxima_inspecao: '2024-03-30', status: 'Operacional' },
+                { id: 'EQ008', nome: 'Válvula de Segurança 02', setor: 'armazenamento', tipo: 'Válvula', classe_nr13: 'Sim', data_proxima_inspecao: '2024-08-15', status: 'Operacional' },
+                { id: 'EQ009', nome: 'Válvula de Controle', setor: 'envase', tipo: 'Válvula', classe_nr13: 'Não', data_proxima_inspecao: null, status: 'Operacional' },
+                { id: 'EQ010', nome: 'Sistema de Pesagem', setor: 'envase', tipo: 'Instrumento', classe_nr13: 'Não', data_proxima_inspecao: null, status: 'Operacional' },
+                { id: 'EQ011', nome: 'Esteira Transportadora', setor: 'envase', tipo: 'Transporte', classe_nr13: 'Não', data_proxima_inspecao: null, status: 'Operacional' },
+                { id: 'EQ012', nome: 'Sistema de Detecção', setor: 'armazenamento', tipo: 'Instrumento', classe_nr13: 'Não', data_proxima_inspecao: null, status: 'Operacional' }
+            ];
+
+            // Ordens de Serviço (15 ordens)
+            const today = new Date();
+            appData.ordens = [
+                { id: 'OS001', equipamento_id: 'EQ001', tipo: 'Preventiva', status: 'Concluída', prioridade: 'Média', data_abertura: '2024-01-10', data_fim: '2024-01-10', tecnico: 'T001', tempo_parada: 4 },
+                { id: 'OS002', equipamento_id: 'EQ003', tipo: 'Corretiva', status: 'Concluída', prioridade: 'Alta', data_abertura: '2024-01-15', data_fim: '2024-01-16', tecnico: 'T002', tempo_parada: 18, reaberta: false },
+                { id: 'OS003', equipamento_id: 'EQ005', tipo: 'Preventiva', status: 'Concluída', prioridade: 'Baixa', data_abertura: '2024-01-20', data_fim: '2024-01-20', tecnico: 'T001', tempo_parada: 2 },
+                { id: 'OS004', equipamento_id: 'EQ002', tipo: 'Corretiva', status: 'Concluída', prioridade: 'Urgente', data_abertura: '2024-02-05', data_fim: '2024-02-06', tecnico: 'T003', tempo_parada: 24, reaberta: true, motivo_reabertura: 'Falha não resolvida' },
+                { id: 'OS005', equipamento_id: 'EQ007', tipo: 'Preditiva', status: 'Concluída', prioridade: 'Média', data_abertura: '2024-02-12', data_fim: '2024-02-12', tecnico: 'T002', tempo_parada: 0 },
+                { id: 'OS006', equipamento_id: 'EQ004', tipo: 'Corretiva', status: 'Em Andamento', prioridade: 'Alta', data_abertura: '2024-02-18', data_fim: null, tecnico: 'T004', tempo_parada: 12, reaberta: false },
+                { id: 'OS007', equipamento_id: 'EQ009', tipo: 'Preventiva', status: 'Aberta', prioridade: 'Média', data_abertura: '2024-02-25', data_fim: null, tecnico: 'T001', tempo_parada: 0, reaberta: false },
+                { id: 'OS008', equipamento_id: 'EQ011', tipo: 'Corretiva', status: 'Concluída', prioridade: 'Baixa', data_abertura: '2024-03-01', data_fim: '2024-03-01', tecnico: 'T005', tempo_parada: 6, reaberta: false },
+                { id: 'OS009', equipamento_id: 'EQ003', tipo: 'Preventiva', status: 'Concluída', prioridade: 'Média', data_abertura: '2024-03-10', data_fim: '2024-03-10', tecnico: 'T002', tempo_parada: 3 },
+                { id: 'OS010', equipamento_id: 'EQ006', tipo: 'Corretiva', status: 'Aberta', prioridade: 'Urgente', data_abertura: '2024-03-15', data_fim: null, tecnico: 'T003', tempo_parada: 8, reaberta: false },
+                { id: 'OS011', equipamento_id: 'EQ008', tipo: 'Preventiva', status: 'Concluída', prioridade: 'Média', data_abertura: '2024-03-20', data_fim: '2024-03-20', tecnico: 'T001', tempo_parada: 2 },
+                { id: 'OS012', equipamento_id: 'EQ012', tipo: 'Corretiva', status: 'Concluída', prioridade: 'Alta', data_abertura: '2024-03-22', data_fim: '2024-03-23', tecnico: 'T004', tempo_parada: 14, reaberta: false },
+                { id: 'OS013', equipamento_id: 'EQ010', tipo: 'Preditiva', status: 'Aberta', prioridade: 'Baixa', data_abertura: '2024-03-25', data_fim: null, tecnico: 'T005', tempo_parada: 0, reaberta: false },
+                { id: 'OS014', equipamento_id: 'EQ002', tipo: 'Corretiva', status: 'Concluída', prioridade: 'Urgente', data_abertura: '2024-04-01', data_fim: '2024-04-02', tecnico: 'T003', tempo_parada: 20, reaberta: true, motivo_reabertura: 'Vazamento persistente' },
+                { id: 'OS015', equipamento_id: 'EQ005', tipo: 'Preventiva', status: 'Em Andamento', prioridade: 'Média', data_abertura: '2024-04-05', data_fim: null, tecnico: 'T002', tempo_parada: 4, reaberta: false }
+            ];
+
+            // Custos (14 registros)
+            appData.custos = [
+                { id: 'C001', ordem_id: 'OS001', tipo: 'Mão de Obra', valor: 450.00, data: '2024-01-10' },
+                { id: 'C002', ordem_id: 'OS002', tipo: 'Peça', valor: 1200.00, data: '2024-01-16' },
+                { id: 'C003', ordem_id: 'OS002', tipo: 'Mão de Obra', valor: 890.00, data: '2024-01-16' },
+                { id: 'C004', ordem_id: 'OS004', tipo: 'Peça', valor: 2500.00, data: '2024-02-06' },
+                { id: 'C005', ordem_id: 'OS004', tipo: 'Serviço Externo', valor: 1800.00, data: '2024-02-06' },
+                { id: 'C006', ordem_id: 'OS006', tipo: 'Mão de Obra', valor: 560.00, data: '2024-02-18' },
+                { id: 'C007', ordem_id: 'OS008', tipo: 'Peça', valor: 320.00, data: '2024-03-01' },
+                { id: 'C008', ordem_id: 'OS009', tipo: 'Mão de Obra', valor: 340.00, data: '2024-03-10' },
+                { id: 'C009', ordem_id: 'OS012', tipo: 'Peça', valor: 780.00, data: '2024-03-23' },
+                { id: 'C010', ordem_id: 'OS012', tipo: 'Serviço Externo', valor: 1200.00, data: '2024-03-23' },
+                { id: 'C011', ordem_id: 'OS014', tipo: 'Peça', valor: 1500.00, data: '2024-04-02' },
+                { id: 'C012', ordem_id: 'OS014', tipo: 'Mão de Obra', valor: 950.00, data: '2024-04-02' },
+                { id: 'C013', ordem_id: 'OS003', tipo: 'Mão de Obra', valor: 280.00, data: '2024-01-20' },
+                { id: 'C014', ordem_id: 'OS011', tipo: 'Mão de Obra', valor: 220.00, data: '2024-03-20' }
+            ];
+
+            // Falhas (5 registros)
+            appData.falhas = [
+                { id: 'F001', equipamento_id: 'EQ003', data: '2024-01-15', tipo: 'Mecânica', causa_raiz: 'Desgaste de selo', acao: 'Substituição de selo', tempo_parada: 18 },
+                { id: 'F002', equipamento_id: 'EQ002', data: '2024-02-05', tipo: 'Elétrica', causa_raiz: 'Sobrecarga', acao: 'Troca de motor', tempo_parada: 24 },
+                { id: 'F003', equipamento_id: 'EQ004', data: '2024-02-18', tipo: 'Mecânica', causa_raiz: 'Falha de rolamento', acao: 'Em andamento', tempo_parada: 12 },
+                { id: 'F004', equipamento_id: 'EQ012', data: '2024-03-22', tipo: 'Instrumentação', causa_raiz: 'Calibração desregulada', acao: 'Recalibração', tempo_parada: 14 },
+                { id: 'F005', equipamento_id: 'EQ002', data: '2024-04-01', tipo: 'Mecânica', causa_raiz: 'Corrosão', acao: 'Reparo de vazamento', tempo_parada: 20 }
+            ];
+
+            // Segurança Industrial (5 registros)
+            appData.seguranca = [
+                { id: 'S001', data: '2024-01-20', equipamento_id: 'EQ003', tipo: 'Quase acidente', descricao: 'Vazamento detectado automaticamente', acao_corretiva: 'Ajuste de pressão', status: 'Concluído' },
+                { id: 'S002', data: '2024-02-10', equipamento_id: 'EQ001', tipo: 'Inspeção NR-13', descricao: 'Inspeção periódica', acao_corretiva: 'Aprovado', status: 'Concluído' },
+                { id: 'S003', data: '2024-03-05', equipamento_id: 'EQ007', tipo: 'Alarme', descricao: 'Sensor de gás acionado', acao_corretiva: 'Verificação - falso positivo', status: 'Concluído' },
+                { id: 'S004', data: '2024-03-18', equipamento_id: null, tipo: 'Treinamento NR-20', descricao: 'Atualização obrigatória', acao_corretiva: 'Agendado', status: 'Pendente' },
+                { id: 'S005', data: '2024-04-02', equipamento_id: 'EQ002', tipo: 'Vazamento', descricao: 'Vazamento pequeno corrigido', acao_corretiva: 'Reparo emergencial', status: 'Concluído' }
+            ];
+
+            // Planos de Manutenção
+            appData.planos = [
+                { equipamento_id: 'EQ001', tipo: 'Preventiva', frequencia_dias: 30, ultima_execucao: '2024-03-15', proxima_execucao: '2024-04-15' },
+                { equipamento_id: 'EQ002', tipo: 'Preventiva', frequencia_dias: 30, ultima_execucao: '2024-03-10', proxima_execucao: '2024-04-10' },
+                { equipamento_id: 'EQ003', tipo: 'Preventiva', frequencia_dias: 15, ultima_execucao: '2024-03-20', proxima_execucao: '2024-04-05' },
+                { equipamento_id: 'EQ004', tipo: 'Corretiva', frequencia_dias: null, ultima_execucao: null, proxima_execucao: null }
+            ];
+
+            // Equipe (5 técnicos)
+            appData.equipe = [
+                { id: 'T001', nome: 'Carlos Silva', turno: 'Manhã', especialidade: 'Mecânica', certificacao_nr20: 'Válida', ultima_os: 'OS011' },
+                { id: 'T002', nome: 'Ana Pereira', turno: 'Tarde', especialidade: 'Elétrica', certificacao_nr20: 'Válida', ultima_os: 'OS015' },
+                { id: 'T003', nome: 'Roberto Santos', turno: 'Manhã', especialidade: 'Mecânica', certificacao_nr20: 'Vencida', ultima_os: 'OS014' },
+                { id: 'T004', nome: 'Juliana Costa', turno: 'Noite', especialidade: 'Instrumentação', certificacao_nr20: 'Válida', ultima_os: 'OS012' },
+                { id: 'T005', nome: 'Marcos Lima', turno: 'Tarde', especialidade: 'Geral', certificacao_nr20: 'Válida', ultima_os: 'OS013' }
+            ];
+        }
+
+        // Calculations
+        function calculateKPIs() {
+            const periodoDias = parseInt(appData.filters.periodo);
+            const dataCorte = new Date();
+            dataCorte.setDate(dataCorte.getDate() - periodoDias);
+
+            // 1. Disponibilidade
+            const horasTotais = periodoDias * 24 * appData.equipamentos.length;
+            const horasParada = appData.ordens
+                .filter(os => os.status === 'Concluída' && new Date(os.data_fim) >= dataCorte)
+                .reduce((sum, os) => sum + (os.tempo_parada || 0), 0);
+            const disponibilidade = Math.max(0, ((horasTotais - horasParada) / horasTotais) * 100);
+            
+            // 2. MTTR
+            const ordensCorretivasConcluidas = appData.ordens.filter(os => 
+                os.tipo === 'Corretiva' && 
+                os.status === 'Concluída' && 
+                new Date(os.data_fim) >= dataCorte
+            );
+            const mttr = ordensCorretivasConcluidas.length > 0 
+                ? ordensCorretivasConcluidas.reduce((sum, os) => {
+                    const inicio = new Date(os.data_abertura);
+                    const fim = new Date(os.data_fim);
+                    return sum + ((fim - inicio) / (1000 * 60 * 60));
+                }, 0) / ordensCorretivasConcluidas.length
+                : 0;
+
+            // 3. Taxa Corretiva
+            const totalOS = appData.ordens.filter(os => new Date(os.data_abertura) >= dataCorte).length;
+            const corretivas = appData.ordens.filter(os => os.tipo === 'Corretiva' && new Date(os.data_abertura) >= dataCorte).length;
+            const preventivas = appData.ordens.filter(os => os.tipo === 'Preventiva' && new Date(os.data_abertura) >= dataCorte).length;
+            const preditivas = appData.ordens.filter(os => os.tipo === 'Preditiva' && new Date(os.data_abertura) >= dataCorte).length;
+            const taxaCorretiva = totalOS > 0 ? (corretivas / totalOS) * 100 : 0;
+
+            // 4. MTBF
+            const totalFalhas = appData.falhas.filter(f => new Date(f.data) >= dataCorte).length;
+            const horasOperacao = horasTotais - horasParada;
+            const mtbf = totalFalhas > 0 ? horasOperacao / totalFalhas : horasOperacao;
+
+            // 5. Backlog
+            const backlog = appData.ordens.filter(os => os.status === 'Aberta' || os.status === 'Vencida').length;
+            const backlogUrgente = appData.ordens.filter(os => (os.status === 'Aberta' || os.status === 'Vencida') && os.prioridade === 'Urgente').length;
+            const backlogAlta = appData.ordens.filter(os => (os.status === 'Aberta' || os.status === 'Vencida') && os.prioridade === 'Alta').length;
+            
+            // 6. Taxa Retrabalho
+            const ordensConcluidas = appData.ordens.filter(os => os.status === 'Concluída' && new Date(os.data_fim) >= dataCorte);
+            const reabertas = ordensConcluidas.filter(os => os.reaberta).length;
+            const taxaRetrabalho = ordensConcluidas.length > 0 ? (reabertas / ordensConcluidas.length) * 100 : 0;
+
+            // 7. Custo Total
+            const custoTotal = appData.custos
+                .filter(c => new Date(c.data) >= dataCorte)
+                .reduce((sum, c) => sum + c.valor, 0);
+
+            // 8. NR-13 Conformidade
+            const equipamentosNR13 = appData.equipamentos.filter(e => e.classe_nr13 === 'Sim');
+            const hoje = new Date();
+            const conformesNR13 = equipamentosNR13.filter(e => {
+                if (!e.data_proxima_inspecao) return false;
+                const proxima = new Date(e.data_proxima_inspecao);
+                return proxima >= hoje;
+            }).length;
+            const conformidadeNR13 = equipamentosNR13.length > 0 ? (conformesNR13 / equipamentosNR13.length) * 100 : 100;
+
+            return {
+                disponibilidade,
+                mttr,
+                taxaCorretiva,
+                preventivas,
+                corretivas,
+                preditivas,
+                totalOS,
+                mtbf,
+                backlog,
+                backlogUrgente,
+                backlogAlta,
+                taxaRetrabalho,
+                reabertas,
+                custoTotal,
+                conformidadeNR13,
+                equipamentosNR13: equipamentosNR13.length,
+                vencidosNR13: equipamentosNR13.length - conformesNR13
+            };
+        }
+
+        // UI Updates
+        function updateDashboard() {
+            const kpis = calculateKPIs();
+            
+            // Update Disponibilidade
+            document.getElementById('kpi-disponibilidade').textContent = kpis.disponibilidade.toFixed(1) + '%';
+            const gaugeDisp = document.getElementById('gauge-disp');
+            const circumference = 251.2;
+            const offset = circumference - (kpis.disponibilidade / 100) * circumference;
+            gaugeDisp.style.strokeDasharray = `${circumference} ${circumference}`;
+            gaugeDisp.style.strokeDashoffset = offset;
+            
+            let colorDisp = '#DC2626';
+            let badgeDisp = 'Crítico';
+            if (kpis.disponibilidade >= 98) { colorDisp = '#10B981'; badgeDisp = 'Excelente'; }
+            else if (kpis.disponibilidade >= 95) { colorDisp = '#F59E0B'; badgeDisp = 'Atenção'; }
+            gaugeDisp.style.stroke = colorDisp;
+            
+            const badgeDispEl = document.getElementById('badge-disp');
+            badgeDispEl.textContent = badgeDisp;
+            badgeDispEl.className = `px-2 py-1 rounded-full text-xs font-semibold text-white ${colorDisp === '#10B981' ? 'bg-success' : colorDisp === '#F59E0B' ? 'bg-warning' : 'bg-danger'}`;
+
+            // Update MTTR
+            document.getElementById('kpi-mttr').textContent = kpis.mttr.toFixed(1) + 'h';
+            const badgeMttr = document.getElementById('badge-mttr');
+            if (kpis.mttr <= 10) {
+                badgeMttr.className = 'px-2 py-1 rounded-full text-xs font-semibold bg-success text-white';
+                badgeMttr.textContent = 'Dentro da Meta';
+            } else {
+                badgeMttr.className = 'px-2 py-1 rounded-full text-xs font-semibold bg-danger text-white pulse-alert';
+                badgeMttr.textContent = 'Acima do Ideal';
+            }
+
+            // Mini MTTR Chart
+            const mttrContainer = document.getElementById('mttr-chart-mini');
+            mttrContainer.innerHTML = '';
+            for (let i = 0; i < 6; i++) {
+                const height = Math.random() * 60 + 20;
+                const bar = document.createElement('div');
+                bar.className = 'flex-1 bg-primary/20 rounded-t hover:bg-primary/40 transition-colors';
+                bar.style.height = height + '%';
+                mttrContainer.appendChild(bar);
+            }
+
+            // Update Backlog
+            document.getElementById('kpi-backlog').textContent = kpis.backlog;
+            document.getElementById('backlog-urgente').textContent = kpis.backlogUrgente;
+            document.getElementById('backlog-alta').textContent = kpis.backlogAlta;
+            
+            const maxBacklog = 15;
+            const backlogPercent = Math.min((kpis.backlog / maxBacklog) * 100, 100);
+            document.getElementById('bar-backlog').style.width = backlogPercent + '%';
+            
+            const badgeBacklog = document.getElementById('badge-backlog');
+            if (kpis.backlog < 5) {
+                badgeBacklog.className = 'px-2 py-1 rounded-full text-xs font-semibold bg-success text-white';
+                badgeBacklog.textContent = 'Normal';
+            } else if (kpis.backlog <= 10) {
+                badgeBacklog.className = 'px-2 py-1 rounded-full text-xs font-semibold bg-warning text-white';
+                badgeBacklog.textContent = 'Atenção';
+            } else {
+                badgeBacklog.className = 'px-2 py-1 rounded-full text-xs font-semibold bg-danger text-white pulse-alert';
+                badgeBacklog.textContent = 'Crítico';
+            }
+
+            // Update NR-13
+            document.getElementById('kpi-nr13').textContent = kpis.conformidadeNR13.toFixed(0) + '%';
+            document.getElementById('nr13-vencidos').textContent = kpis.vencidosNR13;
+            
+            const circleNR13 = document.getElementById('circle-nr13');
+            const offsetNR13 = 251.2 - (kpis.conformidadeNR13 / 100) * 251.2;
+            circleNR13.style.strokeDashoffset = offsetNR13;
+            
+            if (kpis.conformidadeNR13 === 100) {
+                circleNR13.style.stroke = '#10B981';
+                document.getElementById('badge-nr13-card').className = 'px-2 py-1 rounded-full text-xs font-semibold bg-success text-white';
+                document.getElementById('badge-nr13-card').textContent = '100% Conforme';
+            } else if (kpis.conformidadeNR13 >= 50) {
+                circleNR13.style.stroke = '#F59E0B';
+                document.getElementById('badge-nr13-card').className = 'px-2 py-1 rounded-full text-xs font-semibold bg-warning text-white';
+                document.getElementById('badge-nr13-card').textContent = 'Atenção';
+            } else {
+                circleNR13.style.stroke = '#DC2626';
+                document.getElementById('badge-nr13-card').className = 'px-2 py-1 rounded-full text-xs font-semibold bg-danger text-white pulse-alert';
+                document.getElementById('badge-nr13-card').textContent = 'Risco Legal!';
+            }
+
+            // Update Charts
+            updateCharts(kpis);
+            
+            // Update Tables
+            updateTables();
+            
+            // Update Alertas
+            updateAlertas(kpis);
+        }
+
+        function updateCharts(kpis) {
+            // Chart Corretiva
+            const ctxCorretiva = document.getElementById('chart-corretiva').getContext('2d');
+            if (appData.charts.corretiva) appData.charts.corretiva.destroy();
+            
+            appData.charts.corretiva = new Chart(ctxCorretiva, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Preventiva', 'Corretiva', 'Preditiva'],
+                    datasets: [{
+                        data: [kpis.preventivas, kpis.corretivas, kpis.preditivas],
+                        backgroundColor: ['#3B82F6', '#DC2626', '#8B5CF6'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } }
+                    },
+                    cutout: '70%'
+                }
+            });
+
+            document.getElementById('pct-preventiva').textContent = kpis.totalOS > 0 ? ((kpis.preventivas/kpis.totalOS)*100).toFixed(0) + '%' : '0%';
+            document.getElementById('pct-corretiva').textContent = kpis.totalOS > 0 ? ((kpis.corretivas/kpis.totalOS)*100).toFixed(0) + '%' : '0%';
+            document.getElementById('pct-preditiva').textContent = kpis.totalOS > 0 ? ((kpis.preditivas/kpis.totalOS)*100).toFixed(0) + '%' : '0%';
+
+            const badgeCorretiva = document.getElementById('badge-corretiva');
+            if (kpis.taxaCorretiva > 40) {
+                badgeCorretiva.className = 'text-xs px-2 py-1 rounded-full bg-danger text-white pulse-alert';
+                badgeCorretiva.textContent = 'Crítico: ' + kpis.taxaCorretiva.toFixed(0) + '%';
+            } else if (kpis.taxaCorretiva > 30) {
+                badgeCorretiva.className = 'text-xs px-2 py-1 rounded-full bg-warning text-white';
+                badgeCorretiva.textContent = 'Alto: ' + kpis.taxaCorretiva.toFixed(0) + '%';
+            } else {
+                badgeCorretiva.className = 'text-xs px-2 py-1 rounded-full bg-success text-white';
+                badgeCorretiva.textContent = 'Ideal: ' + kpis.taxaCorretiva.toFixed(0) + '%';
+            }
+
+            // Chart Custo
+            const receita = parseFloat(document.getElementById('input-receita').value) || 5000000;
+            const percentCusto = (kpis.custoTotal / receita) * 100;
+            document.getElementById('kpi-custo-receita').textContent = percentCusto.toFixed(2) + '%';
+            
+            const ctxCusto = document.getElementById('chart-custo').getContext('2d');
+            if (appData.charts.custo) appData.charts.custo.destroy();
+            
+            appData.charts.custo = new Chart(ctxCusto, {
+                type: 'bar',
+                data: {
+                    labels: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun'],
+                    datasets: [{
+                        label: 'Custo %',
+                        data: [4.2, 3.8, 5.1, percentCusto, 4.5, 3.9],
+                        backgroundColor: '#1F4E78',
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, max: 8, grid: { display: false } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+
+            const custoStatus = document.getElementById('custo-status');
+            if (percentCusto > 7) {
+                custoStatus.className = 'text-danger font-medium';
+                custoStatus.textContent = 'Acima da meta (3-7%)';
+            } else if (percentCusto < 3) {
+                custoStatus.className = 'text-warning font-medium';
+                custoStatus.textContent = 'Abaixo do investimento ideal';
+            } else {
+                custoStatus.className = 'text-success font-medium';
+                custoStatus.textContent = 'Dentro da meta';
+            }
+
+            // Chart Retrabalho
+            const ctxRetrabalho = document.getElementById('chart-retrabalho').getContext('2d');
+            if (appData.charts.retrabalho) appData.charts.retrabalho.destroy();
+            
+            appData.charts.retrabalho = new Chart(ctxRetrabalho, {
+                type: 'line',
+                data: {
+                    labels: ['Out', 'Nov', 'Dez', 'Jan', 'Fev', 'Mar'],
+                    datasets: [{
+                        label: '% Retrabalho',
+                        data: [3, 5, 4, 6, kpis.taxaRetrabalho, 4.5],
+                        borderColor: '#DC2626',
+                        backgroundColor: 'rgba(220, 38, 38, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, max: 15 },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+
+            document.getElementById('total-retrabalho').textContent = kpis.reabertas;
+            document.getElementById('causa-retrabalho').textContent = 'Falha Mecânica';
+            
+            const badgeRetrabalho = document.getElementById('badge-retrabalho');
+            if (kpis.taxaRetrabalho > 10) {
+                badgeRetrabalho.className = 'text-xs px-2 py-1 rounded-full bg-danger text-white';
+            } else if (kpis.taxaRetrabalho > 5) {
+                badgeRetrabalho.className = 'text-xs px-2 py-1 rounded-full bg-warning text-white';
+            } else {
+                badgeRetrabalho.className = 'text-xs px-2 py-1 rounded-full bg-success text-white';
+            }
+        }
+
+        function updateTables() {
+            // Últimas Ordens
+            const tbodyOrdens = document.getElementById('table-ordens');
+            tbodyOrdens.innerHTML = '';
+            
+            const ultimasOrdens = [...appData.ordens]
+                .sort((a, b) => new Date(b.data_abertura) - new Date(a.data_abertura))
+                .slice(0, 5);
+            
+            ultimasOrdens.forEach(os => {
+                const equip = appData.equipamentos.find(e => e.id === os.equipamento_id);
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-slate-50';
+                
+                const statusColor = os.status === 'Concluída' ? 'bg-success/10 text-success' : 
+                                   os.status === 'Em Andamento' ? 'bg-warning/10 text-warning' : 
+                                   'bg-slate-100 text-slate-600';
+                
+                const prioridadeColor = os.prioridade === 'Urgente' ? 'text-danger font-semibold' :
+                                       os.prioridade === 'Alta' ? 'text-warning font-semibold' :
+                                       'text-slate-600';
+                
+                row.innerHTML = `
+                    <td class="px-3 py-2 font-medium">${os.id}</td>
+                    <td class="px-3 py-2">${equip ? equip.nome : os.equipamento_id}</td>
+                    <td class="px-3 py-2">${os.tipo}</td>
+                    <td class="px-3 py-2"><span class="px-2 py-1 rounded-full text-xs ${statusColor}">${os.status}</span></td>
+                    <td class="px-3 py-2 ${prioridadeColor}">${os.prioridade}</td>
+                `;
+                tbodyOrdens.appendChild(row);
+            });
+
+            // Calcular dias médios aberto
+            const abertas = appData.ordens.filter(os => os.status === 'Aberta');
+            const diasAberto = abertas.reduce((sum, os) => {
+                const abertura = new Date(os.data_abertura);
+                const hoje = new Date();
+                return sum + Math.floor((hoje - abertura) / (1000 * 60 * 60 * 24));
+            }, 0) / (abertas.length || 1);
+            document.getElementById('backlog-dias').textContent = diasAberto.toFixed(0);
+        }
+
+        function updateAlertas(kpis) {
+            const alertas = [];
+            
+            if (kpis.disponibilidade < 95) alertas.push({ tipo: 'danger', msg: `Disponibilidade crítica: ${kpis.disponibilidade.toFixed(1)}%` });
+            if (kpis.mttr > 10) alertas.push({ tipo: 'warning', msg: `MTTR acima da meta: ${kpis.mttr.toFixed(1)}h` });
+            if (kpis.backlog > 10) alertas.push({ tipo: 'danger', msg: `Backlog elevado: ${kpis.backlog} ordens pendentes` });
+            if (kpis.taxaCorretiva > 40) alertas.push({ tipo: 'danger', msg: `Taxa corretiva crítica: ${kpis.taxaCorretiva.toFixed(0)}%` });
+            if (kpis.vencidosNR13 > 0) alertas.push({ tipo: 'danger', msg: `${kpis.vencidosNR13} equipamento(s) NR-13 vencido(s)` });
+            
+            const listaAlertas = document.getElementById('lista-alertas');
+            listaAlertas.innerHTML = '';
+            
+            if (alertas.length === 0) {
+                listaAlertas.innerHTML = '<div class="p-4 bg-success/10 text-success rounded-lg flex items-center gap-2"><i data-lucide="check-circle" class="w-5 h-5"></i> Nenhum alerta crítico no momento</div>';
+            } else {
+                alertas.forEach(alerta => {
+                    const div = document.createElement('div');
+                    div.className = `p-3 rounded-lg flex items-start gap-3 ${alerta.tipo === 'danger' ? 'bg-danger/10 text-danger' : 'bg-warning/10 text-warning'}`;
+                    div.innerHTML = `
+                        <i data-lucide="alert-circle" class="w-5 h-5 flex-shrink-0 mt-0.5"></i>
+                        <span class="text-sm font-medium">${alerta.msg}</span>
+                    `;
+                    listaAlertas.appendChild(div);
+                });
+            }
+            
+            document.getElementById('count-alertas').textContent = alertas.length;
+            const alertCount = document.getElementById('alert-count');
+            if (alertas.length > 0) {
+                alertCount.textContent = alertas.length;
+                alertCount.classList.remove('hidden');
+            } else {
+                alertCount.classList.add('hidden');
+            }
+            
+            lucide.createIcons();
+        }
+
+        // Navigation
+        function showPage(pageId) {
+            // Hide all pages
+            document.querySelectorAll('.page-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            
+            // Show selected page
+            document.getElementById('page-' + pageId).classList.remove('hidden');
+            document.getElementById('nav-' + pageId).classList.add('active');
+            
+            // Update title
+            const titles = {
+                'dashboard': 'Dashboard Executivo',
+                'equipamentos': 'Análise por Equipamento',
+                'seguranca': 'Conformidade e Segurança',
+                'financeiro': 'Análise Financeira',
+                'recursos': 'Gestão de Recursos'
+            };
+            document.getElementById('page-title').textContent = titles[pageId];
+            
+            // Load specific data
+            if (pageId === 'equipamentos') loadEquipamentosList();
+            if (pageId === 'seguranca') loadSegurancaData();
+            if (pageId === 'financeiro') loadFinanceiroData();
+            if (pageId === 'recursos') loadRecursosData();
+        }
+
+        function loadEquipamentosList() {
+            const select = document.getElementById('select-equipamento');
+            select.innerHTML = '<option value="">Escolha um equipamento...</option>';
+            appData.equipamentos.forEach(eq => {
+                const option = document.createElement('option');
+                option.value = eq.id;
+                option.textContent = `${eq.id} - ${eq.nome} (${eq.setor})`;
+                select.appendChild(option);
+            });
+        }
+
+        function loadEquipamentoDetail() {
+            const equipId = document.getElementById('select-equipamento').value;
+            if (!equipId) {
+                document.getElementById('equipamento-detail').classList.add('hidden');
+                document.getElementById('equipamento-empty').classList.remove('hidden');
+                return;
+            }
+            
+            document.getElementById('equipamento-empty').classList.add('hidden');
+            document.getElementById('equipamento-detail').classList.remove('hidden');
+            
+            const equip = appData.equipamentos.find(e => e.id === equipId);
+            
+            // Calculate Health Score
+            const falhasEquip = appData.falhas.filter(f => f.equipamento_id === equipId).length;
+            const custoEquip = appData.custos.filter(c => {
+                const os = appData.ordens.find(o => o.id === c.ordem_id);
+                return os && os.equipamento_id === equipId;
+            }).reduce((sum, c) => sum + c.valor, 0);
+            
+            let healthScore = 100 - (falhasEquip * 10) - (custoEquip / 1000);
+            healthScore = Math.max(0, Math.min(100, healthScore));
+            
+            document.getElementById('health-score').textContent = Math.round(healthScore);
+            document.getElementById('health-label').textContent = healthScore >= 80 ? 'Saudável' : healthScore >= 50 ? 'Atenção' : 'Crítico';
+            
+            const healthCircle = document.getElementById('health-circle');
+            const offset = 439.8 - (healthScore / 100) * 439.8;
+            healthCircle.style.strokeDashoffset = offset;
+            healthCircle.style.stroke = healthScore >= 80 ? '#10B981' : healthScore >= 50 ? '#F59E0B' : '#DC2626';
+            
+            // Load charts
+            const ctxMtbf = document.getElementById('chart-mtbf-equip').getContext('2d');
+            if (appData.charts.mtbfEquip) appData.charts.mtbfEquip.destroy();
+            appData.charts.mtbfEquip = new Chart(ctxMtbf, {
+                type: 'line',
+                data: {
+                    labels: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun'],
+                    datasets: [{
+                        label: 'MTBF (h)',
+                        data: [1200, 1350, 1100, 1450, 1300, 1500],
+                        borderColor: '#1F4E78',
+                        tension: 0.4
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+            
+            const ctxDisp = document.getElementById('chart-disp-equip').getContext('2d');
+            if (appData.charts.dispEquip) appData.charts.dispEquip.destroy();
+            appData.charts.dispEquip = new Chart(ctxDisp, {
+                type: 'line',
+                data: {
+                    labels: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun'],
+                    datasets: [{
+                        label: 'Disponibilidade %',
+                        data: [98.5, 99.0, 97.8, 99.2, 98.9, 99.5],
+                        borderColor: '#10B981',
+                        tension: 0.4
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 95, max: 100 } } }
+            });
+            
+            // Load tables
+            const tbodyFalhas = document.getElementById('table-falhas-equip');
+            tbodyFalhas.innerHTML = '';
+            appData.falhas.filter(f => f.equipamento_id === equipId).forEach(falha => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="px-4 py-3">${falha.data}</td>
+                    <td class="px-4 py-3">${falha.tipo}</td>
+                    <td class="px-4 py-3">${falha.causa_raiz}</td>
+                    <td class="px-4 py-3">${falha.acao}</td>
+                    <td class="px-4 py-3">${falha.tempo_parada}h</td>
+                `;
+                tbodyFalhas.appendChild(row);
+            });
+            
+            document.getElementById('custo-total-equip').textContent = 'R$ ' + custoEquip.toLocaleString('pt-BR', {minimumFractionDigits: 2});
+            
+            // Próximas manutenções
+            const plano = appData.planos.find(p => p.equipamento_id === equipId);
+            const container = document.getElementById('proximas-manutencoes');
+            container.innerHTML = '';
+            if (plano && plano.proxima_execucao) {
+                container.innerHTML = `
+                    <div class="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                        <div>
+                            <div class="font-medium text-slate-800">${plano.tipo}</div>
+                            <div class="text-sm text-slate-500">Programada para ${plano.proxima_execucao}</div>
+                        </div>
+                        <span class="px-3 py-1 bg-primary text-white text-xs rounded-full">Agendada</span>
+                    </div>
+                `;
+            } else {
+                container.innerHTML = '<div class="text-slate-500 text-sm">Nenhuma manutenção preventiva agendada</div>';
+            }
+        }
+
+        function loadSegurancaData() {
+            // NR-13 Table
+            const tbodyNR13 = document.getElementById('table-nr13');
+            tbodyNR13.innerHTML = '';
+            const hoje = new Date();
+            let conformes = 0;
+            let total = 0;
+            
+            appData.equipamentos.filter(e => e.classe_nr13 === 'Sim').forEach(eq => {
+                total++;
+                const proxima = new Date(eq.data_proxima_inspecao);
+                const diffDays = Math.floor((proxima - hoje) / (1000 * 60 * 60 * 24));
+                const isConforme = diffDays >= 0;
+                if (isConforme) conformes++;
+                
+                const status = diffDays < 0 ? 'Vencido' : diffDays < 30 ? 'Vence em ' + diffDays + ' dias' : 'Válido';
+                const statusColor = diffDays < 0 ? 'bg-danger text-white' : diffDays < 30 ? 'bg-warning text-white' : 'bg-success text-white';
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="px-4 py-3 font-medium">${eq.id}</td>
+                    <td class="px-4 py-3">${eq.nome}</td>
+                    <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${statusColor}">${status}</span></td>
+                    <td class="px-4 py-3">${eq.data_proxima_inspecao}</td>
+                    <td class="px-4 py-3 ${diffDays < 0 ? 'text-danger font-bold' : ''}">${diffDays}</td>
+                `;
+                tbodyNR13.appendChild(row);
+            });
+            
+            document.getElementById('nr13-percent').textContent = total > 0 ? ((conformes/total)*100).toFixed(0) + '%' : '100%';
+            
+            // Calendário
+            const calendario = document.getElementById('calendario-inspecoes');
+            calendario.innerHTML = '';
+            appData.equipamentos
+                .filter(e => e.classe_nr13 === 'Sim' && e.data_proxima_inspecao)
+                .sort((a, b) => new Date(a.data_proxima_inspecao) - new Date(b.data_proxima_inspecao))
+                .forEach(eq => {
+                    const div = document.createElement('div');
+                    div.className = 'flex items-center gap-3 p-3 bg-slate-50 rounded-lg';
+                    div.innerHTML = `
+                        <div class="w-12 h-12 bg-primary/10 rounded-lg flex flex-col items-center justify-center text-primary">
+                            <span class="text-xs font-bold">${new Date(eq.data_proxima_inspecao).toLocaleDateString('pt-BR', {month: 'short'})}</span>
+                            <span class="text-lg font-bold">${new Date(eq.data_proxima_inspecao).getDate()}</span>
+                        </div>
+                        <div class="flex-1">
+                            <div class="font-medium text-slate-800">${eq.nome}</div>
+                            <div class="text-xs text-slate-500">Inspeção NR-13</div>
+                        </div>
+                    `;
+                    calendario.appendChild(div);
+                });
+            
+            // NR-20
+            const gridNR20 = document.getElementById('grid-nr20');
+            gridNR20.innerHTML = '';
+            let validosNR20 = 0;
+            appData.equipe.forEach(tec => {
+                const isValido = tec.certificacao_nr20 === 'Válida';
+                if (isValido) validosNR20++;
+                const div = document.createElement('div');
+                div.className = `p-4 rounded-lg ${isValido ? 'bg-success/10 border border-success/20' : 'bg-danger/10 border border-danger/20'}`;
+                div.innerHTML = `
+                    <div class="flex items-center gap-2 mb-2">
+                        <div class="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold">${tec.nome.split(' ').map(n => n[0]).join('')}</div>
+                        <div class="font-medium text-slate-800">${tec.nome}</div>
+                    </div>
+                    <div class="text-xs ${isValido ? 'text-success' : 'text-danger'} font-medium">
+                        ${isValido ? '✓ Certificação Válida' : '✗ Certificação Vencida'}
+                    </div>
+                `;
+                gridNR20.appendChild(div);
+            });
+            document.getElementById('nr20-percent').textContent = ((validosNR20/appData.equipe.length)*100).toFixed(0) + '%';
+            
+            // Incidentes
+            const tbodyIncidentes = document.getElementById('table-incidentes');
+            tbodyIncidentes.innerHTML = '';
+            appData.seguranca.forEach(inc => {
+                const equip = appData.equipamentos.find(e => e.id === inc.equipamento_id);
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="px-4 py-3">${inc.data}</td>
+                    <td class="px-4 py-3">${equip ? equip.nome : '-'}</td>
+                    <td class="px-4 py-3">${inc.tipo}</td>
+                    <td class="px-4 py-3">${inc.descricao}</td>
+                    <td class="px-4 py-3">${inc.acao_corretiva}</td>
+                    <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${inc.status === 'Concluído' ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'}">${inc.status}</span></td>
+                `;
+                tbodyIncidentes.appendChild(row);
+            });
+        }
+
+        function loadFinanceiroData() {
+            calcularIndicadoresFinanceiros();
+        }
+
+        function calcularIndicadoresFinanceiros() {
+            const receita = parseFloat(document.getElementById('input-receita').value) || 5000000;
+            const kpis = calculateKPIs();
+            
+            document.getElementById('fin-custo-total').textContent = 'R$ ' + kpis.custoTotal.toLocaleString('pt-BR', {minimumFractionDigits: 2});
+            
+            const percent = (kpis.custoTotal / receita) * 100;
+            document.getElementById('fin-custo-percent').textContent = percent.toFixed(2) + '%';
+            
+            const statusEl = document.getElementById('fin-custo-status');
+            if (percent >= 3 && percent <= 7) {
+                statusEl.className = 'mt-2 text-xs px-2 py-1 rounded-full bg-success/10 text-success inline-block';
+                statusEl.textContent = 'Dentro da meta (3-7%)';
+            } else if (percent > 7) {
+                statusEl.className = 'mt-2 text-xs px-2 py-1 rounded-full bg-danger/10 text-danger inline-block';
+                statusEl.textContent = 'Acima do ideal';
+            } else {
+                statusEl.className = 'mt-2 text-xs px-2 py-1 rounded-full bg-warning/10 text-warning inline-block';
+                statusEl.textContent = 'Abaixo do investimento recomendado';
+            }
+            
+            // Economia preventiva estimada (regra: preventiva custa 1/3 de corretiva)
+            const custoCorretiva = kpis.corretivas * 1500; // média estimada
+            const custoPreventiva = kpis.preventivas * 500;
+            const economia = (kpis.corretivas * 1000) - (kpis.preventivas * 200); // simplificado
+            document.getElementById('fin-economia').textContent = 'R$ ' + Math.max(0, economia).toLocaleString('pt-BR', {minimumFractionDigits: 2});
+            
+            // Charts
+            const ctxEvolucao = document.getElementById('chart-custo-evolucao').getContext('2d');
+            if (appData.charts.custoEvolucao) appData.charts.custoEvolucao.destroy();
+            appData.charts.custoEvolucao = new Chart(ctxEvolucao, {
+                type: 'bar',
+                data: {
+                    labels: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun'],
+                    datasets: [{
+                        label: 'Custo (R$)',
+                        data: [45000, 38000, 52000, kpis.custoTotal, 41000, 39000],
+                        backgroundColor: '#1F4E78',
+                        borderRadius: 4
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+            
+            const ctxBreakdown = document.getElementById('chart-custo-breakdown').getContext('2d');
+            if (appData.charts.custoBreakdown) appData.charts.custoBreakdown.destroy();
+            
+            const custoPecas = appData.custos.filter(c => c.tipo === 'Peça').reduce((s, c) => s + c.valor, 0);
+            const custoMO = appData.custos.filter(c => c.tipo === 'Mão de Obra').reduce((s, c) => s + c.valor, 0);
+            const custoExterno = appData.custos.filter(c => c.tipo === 'Serviço Externo').reduce((s, c) => s + c.valor, 0);
+            
+            appData.charts.custoBreakdown = new Chart(ctxBreakdown, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Peças', 'Mão de Obra', 'Serviço Externo'],
+                    datasets: [{
+                        data: [custoPecas, custoMO, custoExterno],
+                        backgroundColor: ['#3B82F6', '#10B981', '#F59E0B']
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+            
+            // Pareto
+            const ctxPareto = document.getElementById('chart-custo-pareto').getContext('2d');
+            if (appData.charts.pareto) appData.charts.pareto.destroy();
+            
+            const custoPorEquip = {};
+            appData.custos.forEach(c => {
+                const os = appData.ordens.find(o => o.id === c.ordem_id);
+                if (os) {
+                    custoPorEquip[os.equipamento_id] = (custoPorEquip[os.equipamento_id] || 0) + c.valor;
+                }
+            });
+            
+            const sortedEquips = Object.entries(custoPorEquip)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 5);
+            
+            appData.charts.pareto = new Chart(ctxPareto, {
+                type: 'bar',
+                data: {
+                    labels: sortedEquips.map(e => e[0]),
+                    datasets: [{
+                        label: 'Custo Acumulado (R$)',
+                        data: sortedEquips.map(e => e[1]),
+                        backgroundColor: '#DC2626',
+                        borderRadius: 4
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+            
+            // ROI
+            document.getElementById('roi-preventiva').textContent = 'R$ ' + custoPreventiva.toLocaleString('pt-BR');
+            document.getElementById('roi-evitado').textContent = 'R$ ' + (custoCorretiva * 0.6).toLocaleString('pt-BR');
+            document.getElementById('roi-percent').textContent = '250%';
+            
+            const ctxROI = document.getElementById('chart-prev-vs-corr').getContext('2d');
+            if (appData.charts.roi) appData.charts.roi.destroy();
+            appData.charts.roi = new Chart(ctxROI, {
+                type: 'bar',
+                data: {
+                    labels: ['Preventiva', 'Corretiva'],
+                    datasets: [{
+                        label: 'Custo Médio (R$)',
+                        data: [500, 1500],
+                        backgroundColor: ['#10B981', '#DC2626'],
+                        borderRadius: 4
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y' }
+            });
+        }
+
+        function loadRecursosData() {
+            // Técnicos table
+            const tbody = document.getElementById('table-tecnicos');
+            tbody.innerHTML = '';
+            
+            appData.equipe.forEach(tec => {
+                const osTec = appData.ordens.filter(o => o.tecnico === tec.id && o.status === 'Concluída');
+                const mttrTec = osTec.length > 0 
+                    ? osTec.reduce((s, o) => s + (o.tempo_parada || 0), 0) / osTec.length 
+                    : 0;
+                const reabertasTec = osTec.filter(o => o.reaberta).length;
+                const taxaRetrabalhoTec = osTec.length > 0 ? (reabertasTec / osTec.length) * 100 : 0;
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="px-4 py-3 font-medium">${tec.nome}</td>
+                    <td class="px-4 py-3">${tec.turno}</td>
+                    <td class="px-4 py-3">${tec.especialidade}</td>
+                    <td class="px-4 py-3">${mttrTec.toFixed(1)}h</td>
+                    <td class="px-4 py-3 ${taxaRetrabalhoTec > 10 ? 'text-danger font-bold' : ''}">${taxaRetrabalhoTec.toFixed(0)}%</td>
+                    <td class="px-4 py-3">${osTec.length}</td>
+                    <td class="px-4 py-3"><span class="px-2 py-1 rounded-full text-xs ${tec.certificacao_nr20 === 'Válida' ? 'bg-success/10 text-success' : 'bg-danger/10 text-danger'}">${tec.certificacao_nr20}</span></td>
+                `;
+                tbody.appendChild(row);
+            });
+            
+            // Utilização Chart
+            const ctxUtil = document.getElementById('chart-utilizacao').getContext('2d');
+            if (appData.charts.utilizacao) appData.charts.utilizacao.destroy();
+            appData.charts.utilizacao = new Chart(ctxUtil, {
+                type: 'bar',
+                data: {
+                    labels: appData.equipe.map(t => t.nome.split(' ')[0]),
+                    datasets: [{
+                        label: 'Utilização %',
+                        data: [85, 78, 92, 65, 80],
+                        backgroundColor: '#1F4E78',
+                        borderRadius: 4
+                    }]
+                },
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false,
+                    scales: { y: { max: 100 } }
+                }
+            });
+            
+            // Backlog por responsável
+            const ctxBacklog = document.getElementById('chart-backlog-resp').getContext('2d');
+            if (appData.charts.backlogResp) appData.charts.backlogResp.destroy();
+            
+            const backlogPorResp = {};
+            appData.ordens.filter(o => o.status === 'Aberta').forEach(o => {
+                backlogPorResp[o.tecnico] = (backlogPorResp[o.tecnico] || 0) + 1;
+            });
+            
+            appData.charts.backlogResp = new Chart(ctxBacklog, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(backlogPorResp).map(id => {
+                        const tec = appData.equipe.find(t => t.id === id);
+                        return tec ? tec.nome.split(' ')[0] : id;
+                    }),
+                    datasets: [{
+                        label: 'OS em Aberto',
+                        data: Object.values(backlogPorResp),
+                        backgroundColor: '#F59E0B',
+                        borderRadius: 4
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+            
+            // Treinamentos necessários
+            const lista = document.getElementById('lista-treinamentos');
+            lista.innerHTML = '';
+            
+            appData.equipe.forEach(tec => {
+                const osTec = appData.ordens.filter(o => o.tecnico === tec.id && o.status === 'Concluída');
+                const reabertas = osTec.filter(o => o.reaberta).length;
+                const taxa = osTec.length > 0 ? (reabertas / osTec.length) * 100 : 0;
+                
+                if (taxa > 15 || tec.certificacao_nr20 === 'Vencida') {
+                    const div = document.createElement('div');
+                    div.className = 'flex items-center justify-between p-3 bg-warning/10 border border-warning/20 rounded-lg';
+                    div.innerHTML = `
+                        <div>
+                            <div class="font-medium text-slate-800">${tec.nome}</div>
+                            <div class="text-xs text-slate-600">
+                                ${tec.certificacao_nr20 === 'Vencida' ? 'NR-20 Vencida' : `Taxa retrabalho: ${taxa.toFixed(0)}%`}
+                            </div>
+                        </div>
+                        <button class="px-3 py-1 bg-warning text-white text-xs rounded-lg hover:bg-warning/80 transition-colors">Agendar Treinamento</button>
+                    `;
+                    lista.appendChild(div);
+                }
+            });
+            
+            if (lista.children.length === 0) {
+                lista.innerHTML = '<div class="p-4 bg-success/10 text-success rounded-lg text-center">Nenhum treinamento pendente</div>';
+            }
+        }
+
+        // Actions
+        function applyFilters() {
+            appData.filters.setor = document.getElementById('filter-setor').value;
+            appData.filters.periodo = document.getElementById('filter-periodo').value;
+            updateDashboard();
+        }
+
+        function refreshData() {
+            const btn = document.querySelector('button[onclick="refreshData()"]');
+            const icon = btn.querySelector('i');
+            icon.classList.add('animate-spin');
+            
+            setTimeout(() => {
+                generateMockData();
+                updateDashboard();
+                icon.classList.remove('animate-spin');
+                document.getElementById('last-update').textContent = new Date().toLocaleTimeString('pt-BR');
+            }, 1000);
+        }
+
+        function toggleConfig() {
+            document.getElementById('modal-config').classList.remove('hidden');
+            document.getElementById('config-apikey').value = appData.config.apiKey;
+            document.getElementById('config-sheetid').value = appData.config.spreadsheetId;
+        }
+
+        function closeConfig() {
+            document.getElementById('modal-config').classList.add('hidden');
+        }
+
+        function saveConfig() {
+            appData.config.apiKey = document.getElementById('config-apikey').value;
+            appData.config.spreadsheetId = document.getElementById('config-sheetid').value;
+            localStorage.setItem('sheets_api_key', appData.config.apiKey);
+            localStorage.setItem('sheets_spreadsheet_id', appData.config.spreadsheetId);
+            closeConfig();
+            alert('Configurações salvas! Tentando conectar com Google Sheets...');
+            // Here you would implement actual Google Sheets API connection
+        }
+
+        function editReceita() {
+            document.getElementById('input-receita').focus();
+            showPage('financeiro');
+        }
+
+        function exportEquipamentoPDF() {
+            alert('Exportação para PDF será implementada com biblioteca como jsPDF ou html2pdf.js');
+        }
+
+        function addIncidente() {
+            alert('Funcionalidade de adicionar incidente - integrar com formulário modal');
+        }
+
+        // Google Sheets API Integration (placeholder)
+        async function loadFromGoogleSheets() {
+            if (!appData.config.apiKey) {
+                console.log('API Key não configurada, usando dados mockados');
+                return;
+            }
+            
+            const sheetId = appData.config.spreadsheetId;
+            const apiKey = appData.config.apiKey;
+            const baseUrl = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values`;
+            
+            try {
+                // Load all sheets
+                const sheets = ['Equipamentos', 'Ordens_de_Servico', 'Custos', 'Falhas', 'Seguranca_Industrial', 'Planos_de_Manutencao', 'Equipe'];
+                
+                for (const sheet of sheets) {
+                    const response = await fetch(`${baseUrl}/${sheet}?key=${apiKey}`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        console.log(`Loaded ${sheet}:`, data);
+                        // Parse and update appData accordingly
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading from Google Sheets:', error);
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            generateMockData();
+            updateDashboard();
+            document.getElementById('last-update').textContent = new Date().toLocaleTimeString('pt-BR');
+            
+            // Auto refresh every 5 minutes
+            setInterval(refreshData, 5 * 60 * 1000);
+        });
+    </script>
+</body>
+</html>
